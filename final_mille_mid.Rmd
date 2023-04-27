@@ -1,0 +1,110 @@
+---
+title: "midterm_mille"
+author: "Camille Steahly"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+math_achievement <- read.csv("math_achievement.csv")
+rla_achievement <- read.csv("rla_achievement.csv")
+
+math <- math_achievement %>% 
+  mutate(PCTPROF = as.numeric(gsub("[^0-9.]", "", PCTPROF))) %>% 
+  filter(!is.na(PCTPROF))
+
+rla <- rla_achievement %>% 
+  mutate(PCTPROF = as.numeric(gsub("[^0-9.]", "", PCTPROF))) %>% 
+  filter(!is.na(PCTPROF))
+
+math_grade_avg <- math %>% 
+  group_by(GRADE) %>% 
+  summarize(avg_prof = mean(PCTPROF))
+
+# Plot 1: Bar chart of average math proficiency by grade level
+ggplot(math_grade_avg, aes(x=GRADE, y=avg_prof)) +
+  geom_bar(stat="identity") +
+  labs(title="Average Math Proficiency by Grade Level", x="Grade Level", y="Average Proficiency") +
+  theme_classic()
+
+math_grade_avg <- math %>% 
+  group_by(GRADE) %>% 
+  filter(sum(NUMVALID) >= 1000) %>% 
+  summarize(avg_math_prof = mean(PCTPROF))
+
+rla_grade_avg <- rla %>% 
+  group_by(GRADE) %>% 
+  filter(sum(NUMVALID) >= 1000) %>% 
+  summarize(avg_rla_prof = mean(PCTPROF))
+
+grade_avg <- left_join(math_grade_avg, rla_grade_avg, by="GRADE")
+
+ggplot(grade_avg, aes(x=GRADE, y=avg_math_prof, color="Math")) +
+  geom_point() +
+  geom_smooth(aes(x=GRADE, y=avg_math_prof), color="blue", se=FALSE) +
+  geom_point(aes(x=GRADE, y=avg_rla_prof, color="Reading and Literacy")) +
+  geom_smooth(aes(x=GRADE, y=avg_rla_prof), color="red", se=FALSE) +
+  labs(title="Math and Reading/Literacy Achievement by Grade", x="Grade", y="Average Proficiency Percentage") +
+  scale_color_manual(name = "Subject", values=c("Math" = "blue", "Reading and Literacy" = "red")) +
+  theme_minimal()
+
+
+```
+
+```{r}
+group_regions <- function(state) {
+  if (state %in% c("Maine", "Vermont", "New Hampshire", "Massachusetts", "Rhode Island", "Connecticut")) {
+    return("Northeast")
+  } else if (state %in% c("New York", "Pennsylvania", "New Jersey", "Maryland", "Delaware", "Washington D.C.")) {
+    return("Mid-Atlantic")
+  } else if (state %in% c("Illinois", "Indiana", "Michigan", "Ohio", "Wisconsin", "Minnesota", "Iowa", "Missouri", "North Dakota", "South Dakota", "Nebraska", "Kansas")) {
+    return("Midwest")
+  } else {
+    return("South")
+  }
+}
+
+math <- math %>% 
+  mutate(region = as.factor(sapply(STNAM, group_regions)))
+
+rla <- rla %>% 
+  mutate(region = as.factor(sapply(STNAM, group_regions)))
+
+math_region_avg <- math %>% 
+  group_by(region) %>% 
+  summarize(avg_prof = mean(PCTPROF))
+
+rla_region_avg <- rla %>% 
+  group_by(region) %>% 
+  summarize(avg_prof = mean(PCTPROF))
+
+library(dplyr)
+library(ggplot2)
+
+state_funding <- data.frame(state = c("Florida", "Nevada", "Oklahoma", "Mississippi", "Arizona", "Utah", "Idaho"),
+                            funding = c(9.6, 9.3, 9.3, 9.3, 8.6, 8, 8))
+
+state_funding <- state_funding %>%
+  mutate(region = ifelse(state %in% c("Florida", "Georgia", "North Carolina", "South Carolina", "Virginia", "West Virginia", "Maryland", "Delaware", "District of Columbia", "Alabama", "Kentucky", "Mississippi", "Tennessee", "Arkansas", "Louisiana", "Oklahoma", "Texas"), "South",
+                 ifelse(state %in% c("Connecticut", "Maine", "Massachusetts", "New Hampshire", "Rhode Island", "Vermont", "New York", "New Jersey", "Pennsylvania"), "Northeast",
+                 ifelse(state %in% c("Illinois", "Indiana", "Michigan", "Ohio", "Wisconsin", "Iowa", "Kansas", "Minnesota", "Missouri", "Nebraska", "North Dakota", "South Dakota"), "Midwest",
+                 ifelse(state %in% c("Arizona", "Colorado", "Idaho", "Montana", "Nevada", "New Mexico", "Utah", "Wyoming", "Alaska", "California", "Hawaii", "Oregon", "Washington"), "West", NA)))))
+
+# Plot the average funding per region using a choropleth map
+ggplot(data = state_funding, aes(x = state, y = funding)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "white", high = "darkblue") +
+  labs(fill = "Average Funding") +
+  facet_wrap(~ region, ncol = 2)
+
+
+```
+
+
